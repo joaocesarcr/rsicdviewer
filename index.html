@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Caption Editor</title>
+    <title>Editor de Descrições</title>
     <style>
         * {
             margin: 0;
@@ -104,8 +104,10 @@
         }
 
         .label {
+          /* 
             font-size: 16px;
             font-weight: 600;
+          */
             color: #333;
             margin-bottom: 8px;
         }
@@ -113,14 +115,15 @@
         .original-caption {
             padding: 15px;
             border-radius: 8px;
-            line-height: 1.5;
+           /*  line-height: 1.5; */
             background: #ffffff;
             border: 1px solid #ddd;
+            height: 100px;
         }
 
         .editor {
             width: 100%;
-            height: 100px;
+            height: 300px;
             padding: 15px;
             border: 1px solid #ddd;
             border-radius: 8px;
@@ -172,9 +175,9 @@
 </head>
 <body>
     <div class="navigation">
-        <button class="nav-button" id="prevButton" disabled>Previous</button>
-        <span class="image-count">Image <span id="currentIndex">1</span> of <span id="totalImages">1</span></span>
-        <button class="nav-button" id="nextButton" disabled>Next</button>
+        <button class="nav-button" id="prevButton" disabled>Anterior</button>
+        <span class="image-count">Imagem <span id="currentIndex">1</span> de <span id="totalImages">1</span></span>
+        <button class="nav-button" id="nextButton" disabled>Próxima </button>
     </div>
 
     <div class="main-content">
@@ -187,19 +190,50 @@
         <div class="side side-bottom">
             <div class="caption-section">
                 <span class="label">Descrição Original:</span>
-                <div class="original-caption" id="originalCaption">Original caption goes here...</div>
+                <div class="original-caption" id="originalCaption"></div>
             </div>
             
-            <div class="caption-section">
-                <span class="label">Nova Descrição:</span>
-                <textarea class="editor" id="captionEditor" placeholder="Enter the new caption here..."></textarea>
-            </div>
-            
-            <button class="save-button" id="saveButton">Save Changes</button>
+           <div class="caption-section">
+                <span class="label">Nova Descrição: <span id="tokenCounter"></span></span>
+                <textarea class="editor" id="captionEditor"></textarea>
+            </div>            
+            <button class="save-button" id="saveButton">Salvar</button>
             <div class="status-message" id="statusMessage"></div>
         </div>
     </div>
-    <script>
+    <script type="module">
+        import { AutoTokenizer } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers";
+        const MAX_TOKENS = 72;
+        let tokenizer;
+
+        // Load the tokenizer once at the beginning
+        async function initializeTokenizer() {
+            tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
+        }
+
+        // Function to count tokens in the description
+        async function countTokens(text) {
+            const tokens = await tokenizer.encode(text);
+            console.log(tokens);
+            return tokens.length;
+        }
+
+        // Update the token count display
+        async function updateTokenCount() {
+            const newDescription = document.getElementById("captionEditor").value;
+            const tokenCount = await countTokens(newDescription);
+            
+            // Update the token counter display
+            document.getElementById("tokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
+
+            // Optionally, you could add code to disable the save button if the limit is exceeded
+            document.getElementById("saveButton").disabled = tokenCount > MAX_TOKENS;
+        }
+
+        document.getElementById("captionEditor").addEventListener("input", updateTokenCount);
+
+        // Initialize tokenizer when the page loads
+        initializeTokenizer();
         let currentImageIndex = 0;
         let imagesData = [];
 
@@ -237,11 +271,13 @@
             previewImage.alt = image.sentences[0].raw;
             originalCaption.textContent = image.sentences[0].raw;
             editor.value = image.sentences[0].raw;
+            updateTokenCount();
             currentIndexSpan.textContent = index + 1;
             currentImageIndex = index;
             updateNavButtons();
         }
 
+        
         // Update navigation button states
         function updateNavButtons() {
             prevButton.disabled = currentImageIndex === 0;
