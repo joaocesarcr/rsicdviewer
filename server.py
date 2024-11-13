@@ -31,16 +31,13 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
             json.dump(data, f, indent=2)
 
     def do_GET(self):
-        # Parse the URL
         parsed_path = urlparse(self.path)
         
-        # Handle API endpoints
         if parsed_path.path == '/api/images':
             images = self._load_images()
             self._send_json_response(images)
             return
         
-        # Add endpoint to get caption history for an image
         elif parsed_path.path == '/api/captions-history':
             query_params = parse_qs(parsed_path.query)
             image_id = query_params.get('imageId', [None])[0]
@@ -66,6 +63,7 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
             except Exception:
                 self.send_error(400, "Invalid placeholder request")
                 return
+
         # Serve static files
         else:
             if self.path == '/':
@@ -98,6 +96,7 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
                 # Save updated history
                 self._save_captions_history(captions_history)
                 
+                """
                 # Also update the current caption in the original dataset
                 images = self._load_images()
                 for image in images['images']:
@@ -105,6 +104,7 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
                         image['description'] = new_caption
                         break
                 
+                """
                 self._send_json_response({
                     "status": "success",
                     "caption": caption_entry

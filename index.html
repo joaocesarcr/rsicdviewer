@@ -301,8 +301,6 @@
         saveButton.addEventListener('click', async function() {
             const newCaption = editor.value.trim();
             const currentImage = imagesData[currentImageIndex];
-            console.log(currentImage);
-            console.log(newCaption);
 
             if (!newCaption) {
                 showStatus('Please enter a caption before saving.', false);
@@ -326,8 +324,10 @@
                 }
 
                 // Update local data
+                /*
                 currentImage.description = newCaption;
                 originalCaption.textContent = newCaption;
+                */
                 showStatus('Caption saved successfully!', true);
             } catch (error) {
                 showStatus('Failed to save caption. Please try again.', false);
