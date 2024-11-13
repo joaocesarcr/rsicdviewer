@@ -214,7 +214,7 @@
         // Function to count tokens in the description
         async function countTokens(text) {
             const tokens = await tokenizer.encode(text);
-            console.log(tokens);
+            //console.log(tokens);
             return tokens.length;
         }
 
@@ -301,6 +301,8 @@
         saveButton.addEventListener('click', async function() {
             const newCaption = editor.value.trim();
             const currentImage = imagesData[currentImageIndex];
+            console.log(currentImage);
+            console.log(newCaption);
 
             if (!newCaption) {
                 showStatus('Please enter a caption before saving.', false);
@@ -314,7 +316,7 @@
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        imageId: currentImage.id,
+                        imageId: currentImage.imgid,
                         caption: newCaption
                     })
                 });

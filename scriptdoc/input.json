@@ -1,0 +1,11 @@
+
+[
+    {
+        "image_url": "https://www.shutterstock.com/image-photo/happy-puppy-welsh-corgi-14-600nw-2270841247.jpg",
+        "description": "This is the first image description."
+    },
+    {
+        "image_url": "https://plus.unsplash.com/premium_photo-1694819488591-a43907d1c5cc?w=500&auto=format&fit=crop&q=60&ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxzZWFyY2h8MXx8Y3V0ZSUyMGRvZ3xlbnwwfHwwfHx8MA%3D%3D",
+        "description": "This is the second image description."
+    }
+]
