@@ -63,6 +63,7 @@
             box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
             background: white;
             border-radius: 10px;
+            margin: 20px;
         }
 
         .side {
@@ -88,14 +89,71 @@
             gap: 20px;
         }
 
-        .image-container {
+        .image-wrapper {
+            position: relative;
+            overflow: hidden;
             width: 100%;
-            text-align: center;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
         }
 
-        img {
+        .image-container {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        #previewImage {
+            transform-origin: center;
+            transition: transform 0.2s ease-out;
+            cursor: grab;
             max-width: 100%;
             height: auto;
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+        }
+
+        #previewImage:active {
+            cursor: grabbing;
+        }
+
+        .zoom-controls {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            gap: 10px;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px;
+            border-radius: 20px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+        }
+
+        .zoom-button {
+            background: #4a90e2;
+            color: white;
+            border: none;
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 18px;
+            transition: background 0.3s;
+        }
+
+        .zoom-button:hover {
+            background: #357abd;
         }
 
         .caption-section {
@@ -104,10 +162,6 @@
         }
 
         .label {
-          /* 
-            font-size: 16px;
-            font-weight: 600;
-          */
             color: #333;
             margin-bottom: 8px;
         }
@@ -115,7 +169,6 @@
         .original-caption {
             padding: 15px;
             border-radius: 8px;
-           /*  line-height: 1.5; */
             background: #ffffff;
             border: 1px solid #ddd;
             height: 100px;
@@ -182,8 +235,15 @@
 
     <div class="main-content">
         <div class="side side-top">
-            <div class="image-container">
-                <img src="" alt="Current image" id="previewImage">
+            <div class="image-wrapper">
+                <div class="image-container">
+                    <img src="" alt="Current image" id="previewImage" draggable="false">
+                </div>
+                <div class="zoom-controls">
+                    <button class="zoom-button" id="zoomOut">-</button>
+                    <button class="zoom-button" id="zoomReset">↺</button>
+                    <button class="zoom-button" id="zoomIn">+</button>
+                </div>
             </div>
         </div>
 
@@ -206,34 +266,34 @@
         const MAX_TOKENS = 72;
         let tokenizer;
 
-        // Load the tokenizer once at the beginning
+        // Zoom-related variables
+        let currentScale = 1;
+        const MIN_SCALE = 0.5;
+        const MAX_SCALE = 3;
+        const SCALE_STEP = 0.2;
+        let isDragging = false;
+        let startX;
+        let startY;
+        let translateX = 0;
+        let translateY = 0;
+
+        // Initialize tokenizer
         async function initializeTokenizer() {
             tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
         }
 
-        // Function to count tokens in the description
         async function countTokens(text) {
             const tokens = await tokenizer.encode(text);
-            //console.log(tokens);
             return tokens.length;
         }
 
-        // Update the token count display
         async function updateTokenCount() {
             const newDescription = document.getElementById("captionEditor").value;
             const tokenCount = await countTokens(newDescription);
-            
-            // Update the token counter display
             document.getElementById("tokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
-
-            // Optionally, you could add code to disable the save button if the limit is exceeded
             document.getElementById("saveButton").disabled = tokenCount > MAX_TOKENS;
         }
 
-        document.getElementById("captionEditor").addEventListener("input", updateTokenCount);
-
-        // Initialize tokenizer when the page loads
-        initializeTokenizer();
         let currentImageIndex = 0;
         let imagesData = [];
 
@@ -246,6 +306,69 @@
         const editor = document.getElementById('captionEditor');
         const saveButton = document.getElementById('saveButton');
         const statusMessage = document.getElementById('statusMessage');
+
+        // Zoom controls
+        const zoomIn = document.getElementById('zoomIn');
+        const zoomOut = document.getElementById('zoomOut');
+        const zoomReset = document.getElementById('zoomReset');
+
+        function updateImageTransform() {
+            previewImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
+        }
+
+        zoomIn.addEventListener('click', () => {
+            if (currentScale < MAX_SCALE) {
+                currentScale = Math.min(currentScale + SCALE_STEP, MAX_SCALE);
+                updateImageTransform();
+            }
+        });
+
+        zoomOut.addEventListener('click', () => {
+            if (currentScale > MIN_SCALE) {
+                currentScale = Math.max(currentScale - SCALE_STEP, MIN_SCALE);
+                updateImageTransform();
+            }
+        });
+
+        zoomReset.addEventListener('click', () => {
+            currentScale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateImageTransform();
+        });
+
+        // Drag functionality
+        previewImage.addEventListener('mousedown', (e) => {
+            e.preventDefault(); // Prevent default selection behavior
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            previewImage.style.cursor = 'grabbing';
+        });
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateImageTransform();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            previewImage.style.cursor = 'grab';
+        });
+
+        // Wheel zoom
+        previewImage.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
+            const newScale = currentScale + delta;
+            
+            if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
+                currentScale = newScale;
+                updateImageTransform();
+            }
+        });
 
         // Load images data
         async function loadImages() {
@@ -275,16 +398,19 @@
             currentIndexSpan.textContent = index + 1;
             currentImageIndex = index;
             updateNavButtons();
+            
+            // Reset zoom when changing images
+            currentScale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateImageTransform();
         }
 
-        
-        // Update navigation button states
         function updateNavButtons() {
             prevButton.disabled = currentImageIndex === 0;
             nextButton.disabled = currentImageIndex >= imagesData.length - 1;
         }
 
-        // Navigation event listeners
         prevButton.addEventListener('click', () => {
             if (currentImageIndex > 0) {
                 displayImage(currentImageIndex - 1);
@@ -297,7 +423,6 @@
             }
         });
 
-        // Save functionality
         saveButton.addEventListener('click', async function() {
             const newCaption = editor.value.trim();
             const currentImage = imagesData[currentImageIndex];
@@ -323,11 +448,6 @@
                     throw new Error('Failed to save caption');
                 }
 
-                // Update local data
-                /*
-                currentImage.description = newCaption;
-                originalCaption.textContent = newCaption;
-                */
                 showStatus('Caption saved successfully!', true);
             } catch (error) {
                 showStatus('Failed to save caption. Please try again.', false);
@@ -335,7 +455,6 @@
             }
         });
 
-        // Helper function to show status messages
         function showStatus(message, isSuccess) {
             statusMessage.textContent = message;
             statusMessage.style.display = 'block';
@@ -347,7 +466,10 @@
             }, 3000);
         }
 
+        document.getElementById("captionEditor").addEventListener("input", updateTokenCount);
+        
         // Initialize the app
+        initializeTokenizer();
         loadImages();
     </script>
 </body>
