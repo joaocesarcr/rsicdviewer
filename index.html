@@ -266,7 +266,23 @@
         const MAX_TOKENS = 72;
         let tokenizer;
 
-        // Zoom-related variables
+        // Get all DOM references first
+        const prevButton = document.getElementById('prevButton');
+        const nextButton = document.getElementById('nextButton');
+        const currentIndexSpan = document.getElementById('currentIndex');
+        const totalImagesSpan = document.getElementById('totalImages');
+        const previewImage = document.getElementById('previewImage');
+        const originalCaption = document.getElementById('originalCaption');
+        const editor = document.getElementById('captionEditor');
+        const saveButton = document.getElementById('saveButton');
+        const statusMessage = document.getElementById('statusMessage');
+        const zoomIn = document.getElementById('zoomIn');
+        const zoomOut = document.getElementById('zoomOut');
+        const zoomReset = document.getElementById('zoomReset');
+
+        // Initialize variables
+        let currentImageIndex = 0;
+        let imagesData = [];
         let currentScale = 1;
         const MIN_SCALE = 0.5;
         const MAX_SCALE = 3;
@@ -277,117 +293,11 @@
         let translateX = 0;
         let translateY = 0;
 
-        // Initialize tokenizer
-        async function initializeTokenizer() {
-            tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
-        }
-
-        async function countTokens(text) {
-            const tokens = await tokenizer.encode(text);
-            return tokens.length;
-        }
-
-        async function updateTokenCount() {
-            const newDescription = document.getElementById("captionEditor").value;
-            const tokenCount = await countTokens(newDescription);
-            document.getElementById("tokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
-            document.getElementById("saveButton").disabled = tokenCount > MAX_TOKENS;
-        }
-
-        let currentImageIndex = 0;
-        let imagesData = [];
-
-        const prevButton = document.getElementById('prevButton');
-        const nextButton = document.getElementById('nextButton');
-        const currentIndexSpan = document.getElementById('currentIndex');
-        const totalImagesSpan = document.getElementById('totalImages');
-        const previewImage = document.getElementById('previewImage');
-        const originalCaption = document.getElementById('originalCaption');
-        const editor = document.getElementById('captionEditor');
-        const saveButton = document.getElementById('saveButton');
-        const statusMessage = document.getElementById('statusMessage');
-
-        // Zoom controls
-        const zoomIn = document.getElementById('zoomIn');
-        const zoomOut = document.getElementById('zoomOut');
-        const zoomReset = document.getElementById('zoomReset');
-
+        // Function definitions
         function updateImageTransform() {
             previewImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
         }
 
-        zoomIn.addEventListener('click', () => {
-            if (currentScale < MAX_SCALE) {
-                currentScale = Math.min(currentScale + SCALE_STEP, MAX_SCALE);
-                updateImageTransform();
-            }
-        });
-
-        zoomOut.addEventListener('click', () => {
-            if (currentScale > MIN_SCALE) {
-                currentScale = Math.max(currentScale - SCALE_STEP, MIN_SCALE);
-                updateImageTransform();
-            }
-        });
-
-        zoomReset.addEventListener('click', () => {
-            currentScale = 1;
-            translateX = 0;
-            translateY = 0;
-            updateImageTransform();
-        });
-
-        // Drag functionality
-        previewImage.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // Prevent default selection behavior
-            isDragging = true;
-            startX = e.clientX - translateX;
-            startY = e.clientY - translateY;
-            previewImage.style.cursor = 'grabbing';
-        });
-        document.addEventListener('mousemove', (e) => {
-            if (isDragging) {
-                translateX = e.clientX - startX;
-                translateY = e.clientY - startY;
-                updateImageTransform();
-            }
-        });
-
-        document.addEventListener('mouseup', () => {
-            isDragging = false;
-            previewImage.style.cursor = 'grab';
-        });
-
-        // Wheel zoom
-        previewImage.addEventListener('wheel', (e) => {
-            e.preventDefault();
-            const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
-            const newScale = currentScale + delta;
-            
-            if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
-                currentScale = newScale;
-                updateImageTransform();
-            }
-        });
-
-        // Load images data
-        async function loadImages() {
-            try {
-                const response = await fetch('http://localhost:8000/api/images');
-                const data = await response.json();
-                imagesData = data.images;
-                totalImagesSpan.textContent = imagesData.length;
-                updateNavButtons();
-                if (imagesData.length > 0) {
-                    displayImage(0);
-                }
-            } catch (error) {
-                showStatus('Failed to load images. Please refresh the page.', false);
-                console.error('Error:', error);
-            }
-        }
-
-        // Display current image and caption
         function displayImage(index) {
             const image = imagesData[index];
             previewImage.src = './rsicd/imgs/' + image.filename;
@@ -404,26 +314,12 @@
             translateX = 0;
             translateY = 0;
             updateImageTransform();
+            
+            // Focus on the editor
+            editor.focus();
         }
 
-        function updateNavButtons() {
-            prevButton.disabled = currentImageIndex === 0;
-            nextButton.disabled = currentImageIndex >= imagesData.length - 1;
-        }
-
-        prevButton.addEventListener('click', () => {
-            if (currentImageIndex > 0) {
-                displayImage(currentImageIndex - 1);
-            }
-        });
-
-        nextButton.addEventListener('click', () => {
-            if (currentImageIndex < imagesData.length - 1) {
-                displayImage(currentImageIndex + 1);
-            }
-        });
-
-        saveButton.addEventListener('click', async function() {
+        async function saveAndNext() {
             const newCaption = editor.value.trim();
             const currentImage = imagesData[currentImageIndex];
 
@@ -449,11 +345,21 @@
                 }
 
                 showStatus('Caption saved successfully!', true);
+                
+                // Move to next image if available
+                if (currentImageIndex < imagesData.length - 1) {
+                    displayImage(currentImageIndex + 1);
+                }
             } catch (error) {
                 showStatus('Failed to save caption. Please try again.', false);
                 console.error('Error:', error);
             }
-        });
+        }
+
+        function updateNavButtons() {
+            prevButton.disabled = currentImageIndex === 0;
+            nextButton.disabled = currentImageIndex >= imagesData.length - 1;
+        }
 
         function showStatus(message, isSuccess) {
             statusMessage.textContent = message;
@@ -466,8 +372,120 @@
             }, 3000);
         }
 
-        document.getElementById("captionEditor").addEventListener("input", updateTokenCount);
-        
+        // Initialize tokenizer
+        async function initializeTokenizer() {
+            tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
+        }
+
+        async function countTokens(text) {
+            const tokens = await tokenizer.encode(text);
+            return tokens.length;
+        }
+
+        async function updateTokenCount() {
+            const newDescription = editor.value;
+            const tokenCount = await countTokens(newDescription);
+            document.getElementById("tokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
+            saveButton.disabled = tokenCount > MAX_TOKENS;
+        }
+
+        // Load images data
+        async function loadImages() {
+            try {
+                const response = await fetch('http://localhost:8000/api/images');
+                const data = await response.json();
+                imagesData = data.images;
+                totalImagesSpan.textContent = imagesData.length;
+                updateNavButtons();
+                if (imagesData.length > 0) {
+                    displayImage(0);
+                }
+            } catch (error) {
+                showStatus('Failed to load images. Please refresh the page.', false);
+                console.error('Error:', error);
+            }
+        }
+
+        // Event Listeners
+        editor.addEventListener('keydown', async function(e) {
+            if (e.ctrlKey && e.key === 'Enter') {
+                e.preventDefault();
+                await saveAndNext();
+            }
+        });
+
+        editor.addEventListener("input", updateTokenCount);
+
+        prevButton.addEventListener('click', () => {
+            if (currentImageIndex > 0) {
+                displayImage(currentImageIndex - 1);
+            }
+        });
+
+        nextButton.addEventListener('click', () => {
+            if (currentImageIndex < imagesData.length - 1) {
+                displayImage(currentImageIndex + 1);
+            }
+        });
+
+        saveButton.addEventListener('click', saveAndNext);
+
+        // Zoom controls
+        zoomIn.addEventListener('click', () => {
+            if (currentScale < MAX_SCALE) {
+                currentScale = Math.min(currentScale + SCALE_STEP, MAX_SCALE);
+                updateImageTransform();
+            }
+        });
+
+        zoomOut.addEventListener('click', () => {
+            if (currentScale > MIN_SCALE) {
+                currentScale = Math.max(currentScale - SCALE_STEP, MIN_SCALE);
+                updateImageTransform();
+            }
+        });
+
+        zoomReset.addEventListener('click', () => {
+            currentScale = 1;
+            translateX = 0;
+            translateY = 0;
+            updateImageTransform();
+        });
+
+        // Drag functionality
+        previewImage.addEventListener('mousedown', (e) => {
+            e.preventDefault();
+            isDragging = true;
+            startX = e.clientX - translateX;
+            startY = e.clientY - translateY;
+            previewImage.style.cursor = 'grabbing';
+        });
+
+        document.addEventListener('mousemove', (e) => {
+            if (isDragging) {
+                translateX = e.clientX - startX;
+                translateY = e.clientY - startY;
+                updateImageTransform();
+            }
+        });
+
+        document.addEventListener('mouseup', () => {
+            isDragging = false;
+            previewImage.style.cursor = 'grab';
+        });
+
+        // Wheel zoom
+        previewImage.addEventListener('wheel', (e) => {
+            e.preventDefault();
+            const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
+            const newScale = currentScale + delta;
+            
+            if (newScale >= MIN_SCALE && newScale <= MAX_SCALE) {
+                currentScale = newScale;
+                updateImageTransform();
+            }
+        });
+
         // Initialize the app
         initializeTokenizer();
         loadImages();
