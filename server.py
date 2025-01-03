@@ -2,9 +2,20 @@ import os
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 from urllib.parse import parse_qs, urlparse
-from datetime import datetime
+import sqlite3
+
+class DatabaseManager:
+    def __init__(self, db_path="captions.db"):
+        self.db_path = db_path
+
+    def get_connection(self):
+        return sqlite3.connect(self.db_path)
 
 class ImageCaptionHandler(SimpleHTTPRequestHandler):
+    def __init__(self, *args, **kwargs):
+        self.db = DatabaseManager()
+        super().__init__(*args, **kwargs)
+
     def _send_json_response(self, data, status_code=200):
         self.send_response(status_code)
         self.send_header('Content-type', 'application/json')
@@ -12,47 +23,53 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
 
-    def _load_images(self):
-        try:
-            with open('./rsicd/dataset_rsicd.json', 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {"images": []}
+    def _get_image(self, image_id):
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                SELECT id, path, description, new_description 
+                FROM images 
+                WHERE id = ?
+            ''', (image_id,))
+            row = cursor.fetchone()
+            if row:
+                return {
+                    'id': row[0],
+                    'path': row[1],
+                    'description': row[2],
+                    'new_description': row[3]
+                }
+            return None
 
-    def _load_captions_history(self):
-        try:
-            with open('./captions_history.json', 'r') as f:
-                return json.load(f)
-        except FileNotFoundError:
-            return {"captions": []}
-
-    def _save_captions_history(self, data):
-        with open('./captions_history.json', 'w') as f:
-            json.dump(data, f, indent=2)
+    def _update_description(self, image_id, new_description):
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('''
+                UPDATE images
+                SET new_description = ?
+                WHERE id = ?
+            ''', (new_description, image_id))
+            conn.commit()
+            return self._get_image(image_id)
 
     def do_GET(self):
         parsed_path = urlparse(self.path)
         
-        if parsed_path.path == '/api/images':
-            images = self._load_images()
-            self._send_json_response(images)
-            return
-        
-        elif parsed_path.path == '/api/captions-history':
+        if parsed_path.path == '/api/image':
             query_params = parse_qs(parsed_path.query)
-            image_id = query_params.get('imageId', [None])[0]
+            image_id = query_params.get('id', [None])[0]
             
             if image_id:
-                captions_history = self._load_captions_history()
-                image_captions = [c for c in captions_history['captions'] 
-                                if c['imageId'] == image_id]
-                self._send_json_response({"captions": image_captions})
+                image = self._get_image(image_id)
+                if image:
+                    self._send_json_response(image)
+                else:
+                    self._send_json_response({"error": "Image not found"}, 404)
                 return
             else:
                 self._send_json_response({"error": "Image ID required"}, 400)
                 return
         
-        # Handle placeholder images
         elif parsed_path.path.startswith('/api/placeholder/'):
             try:
                 _, _, width, height = parsed_path.path.split('/')
@@ -63,52 +80,41 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
             except Exception:
                 self.send_error(400, "Invalid placeholder request")
                 return
-
-        # Serve static files
+        
         else:
             if self.path == '/':
                 self.path = '/index.html'
             return SimpleHTTPRequestHandler.do_GET(self)
 
     def do_POST(self):
-        if self.path == '/api/save-caption':
+        if self.path == '/api/update-description':
             try:
                 content_length = int(self.headers['Content-Length'])
                 post_data = self.rfile.read(content_length)
                 data = json.loads(post_data.decode('utf-8'))
                 
-                image_id = data.get('imageId')
-                new_caption = data.get('caption')
+                image_id = data.get('id')
+                new_description = data.get('description')
                 
-                # Load current captions history
-                captions_history = self._load_captions_history()
+                if not image_id or not new_description:
+                    self._send_json_response(
+                        {"error": "Image ID and description required"}, 
+                        400
+                    )
+                    return
                 
-                # Create new caption entry
-                caption_entry = {
-                    "imageId": image_id,
-                    "caption": new_caption,
-                    "timestamp": datetime.now().isoformat(),
-                }
+                updated_image = self._update_description(image_id, new_description)
                 
-                # Add new caption to history
-                captions_history['captions'].append(caption_entry)
-                
-                # Save updated history
-                self._save_captions_history(captions_history)
-                
-                """
-                # Also update the current caption in the original dataset
-                images = self._load_images()
-                for image in images['images']:
-                    if image['id'] == image_id:
-                        image['description'] = new_caption
-                        break
-                
-                """
-                self._send_json_response({
-                    "status": "success",
-                    "caption": caption_entry
-                })
+                if updated_image:
+                    self._send_json_response({
+                        "status": "success",
+                        "image": updated_image
+                    })
+                else:
+                    self._send_json_response(
+                        {"error": "Image not found"}, 
+                        404
+                    )
                 
             except Exception as e:
                 self._send_json_response(
@@ -131,9 +137,6 @@ def run(server_class=HTTPServer, handler_class=ImageCaptionHandler, port=8000):
     httpd.serve_forever()
 
 if __name__ == '__main__':
-    # Create captions_history.json if it doesn't exist
-    if not os.path.exists('./captions_history.json'):
-        with open('./captions_history.json', 'w') as f:
-            json.dump({"captions": []}, f, indent=2)
-    
     run()
+
+
