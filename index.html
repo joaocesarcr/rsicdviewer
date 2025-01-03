@@ -10,7 +10,16 @@
             padding: 0;
             box-sizing: border-box;
         }
+        input::-webkit-outer-spin-button,
+        input::-webkit-inner-spin-button {
+          -webkit-appearance: none;
+          margin: 0;
+        }
 
+        /* Firefox */
+        input[type=number] {
+          -moz-appearance: textfield;
+        }
         body {
             height: 100vh;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
@@ -47,6 +56,32 @@
             cursor: not-allowed;
         }
 
+        .goto-container {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            justify-self: end;
+        }
+
+        .goto-container:last-of-type {
+            /* margin-left:auto; */
+
+        }
+
+        .goto-input {
+            width: 80px;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .goto-input:focus {
+            outline: none;
+            border-color: #4a90e2;
+            box-shadow: 0 0 0 2px rgba(74, 144, 226, 0.2);
+        }
         .image-count {
             font-size: 16px;
             color: #333;
@@ -55,8 +90,10 @@
 
         .main-content {
             flex: 1;
-            width: 90%;
-            max-width: 1200px;
+            width: 100%;
+            max-width: 100%;
+            height: 100%;
+            max-height: 100%;
             display: flex;
             padding: 20px;
             gap: 20px;
@@ -69,12 +106,16 @@
         .side {
             display: flex;
             flex-direction: column;
-            width: 50%;
             padding: 20px;
             border-radius: 8px;
+            height: 100%;
+            max-height: 100%;
         }
 
         .side-top {
+            width:90%;
+            max-height:100%;
+            max-height:800px;
             border-right: 1px solid #ddd;
             background: #f9f9f9;
             display: flex;
@@ -85,6 +126,7 @@
 
         .side-bottom {
             display: flex;
+            width: 50%;
             flex-direction: column;
             gap: 20px;
         }
@@ -171,10 +213,11 @@
             border-radius: 8px;
             background: #ffffff;
             border: 1px solid #ddd;
-            height: 100px;
         }
 
         .editor {
+
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
             width: 100%;
             height: 300px;
             padding: 15px;
@@ -228,13 +271,19 @@
 </head>
 <body>
     <div class="navigation">
-        <button class="nav-button" id="prevButton" disabled>Anterior</button>
-        <span class="image-count">Imagem <span id="currentIndex">1</span> de <span id="totalImages">1</span></span>
-        <button class="nav-button" id="nextButton" disabled>Próxima </button>
-    </div>
+      <div class="navigation-buttons-container">
+          <button class="nav-button" id="prevButton" disabled>Anterior</button>
+          <span class="image-count">Imagem <span id="currentIndex">1</span> de <span id="totalImages">1</span></span>
+          <button class="nav-button" id="nextButton" disabled>Próxima</button>
+      </div>
+        <div class="goto-container">
+            <input type="number" class="goto-input" id="gotoInput" min="1" placeholder="Ir para 1">
+            <button class="nav-button" id="gotoButton">Ir</button>
+        </div>
 
+    </div>
     <div class="main-content">
-        <div class="side side-top">
+        <div class="side-top">
             <div class="image-wrapper">
                 <div class="image-container">
                     <img src="" alt="Current image" id="previewImage" draggable="false">
@@ -247,26 +296,28 @@
             </div>
         </div>
 
-        <div class="side side-bottom">
+        <div class="side-bottom">
             <div class="caption-section">
                 <span class="label">Descrição Original:</span>
                 <div class="original-caption" id="originalCaption"></div>
             </div>
-            
+
            <div class="caption-section">
                 <span class="label">Nova Descrição: <span id="tokenCounter"></span></span>
                 <textarea class="editor" id="captionEditor"></textarea>
-            </div>            
+            </div>
             <button class="save-button" id="saveButton">Salvar</button>
             <div class="status-message" id="statusMessage"></div>
         </div>
     </div>
     <script type="module">
         import { AutoTokenizer } from "https://cdn.jsdelivr.net/npm/@huggingface/transformers";
-        const MAX_TOKENS = 72;
+        const MAX_TOKENS = 77;
         let tokenizer;
 
-        // Get all DOM references first
+        // Get all DOM references (keep existing DOM references)
+        const gotoInput = document.getElementById('gotoInput');
+        const gotoButton = document.getElementById('gotoButton');
         const prevButton = document.getElementById('prevButton');
         const nextButton = document.getElementById('nextButton');
         const currentIndexSpan = document.getElementById('currentIndex');
@@ -281,11 +332,11 @@
         const zoomReset = document.getElementById('zoomReset');
 
         // Initialize variables
-        let currentImageIndex = 0;
-        let imagesData = [];
+        let currentId = 1;
+        let totalImages = 23810; 
         let currentScale = 1;
         const MIN_SCALE = 0.5;
-        const MAX_SCALE = 3;
+        const MAX_SCALE = 10;
         const SCALE_STEP = 0.2;
         let isDragging = false;
         let startX;
@@ -294,71 +345,93 @@
         let translateY = 0;
 
         // Function definitions
+        async function handleGoto() {
+            const targetId = parseInt(gotoInput.value);
+            if (isNaN(targetId) || targetId < 1 || targetId > totalImages) {
+                showStatus(`Please enter a valid image number between 1 and ${totalImages}`, false);
+                return;
+            }
+            
+            await loadImage(targetId);
+            gotoInput.value = ''; 
+        }
+
         function updateImageTransform() {
             previewImage.style.transform = `translate(${translateX}px, ${translateY}px) scale(${currentScale})`;
         }
 
-        function displayImage(index) {
-            const image = imagesData[index];
-            previewImage.src = './rsicd/imgs/' + image.filename;
-            previewImage.alt = image.sentences[0].raw;
-            originalCaption.textContent = image.sentences[0].raw;
-            editor.value = image.sentences[0].raw;
-            updateTokenCount();
-            currentIndexSpan.textContent = index + 1;
-            currentImageIndex = index;
-            updateNavButtons();
-            
-            // Reset zoom when changing images
-            currentScale = 1;
-            translateX = 0;
-            translateY = 0;
-            updateImageTransform();
-            
-            // Focus on the editor
-            editor.focus();
+        async function loadImage(id) {
+            try {
+                const response = await fetch(`/api/image?id=${id}`);
+                if (!response.ok) {
+                    throw new Error('Failed to load image');
+                }
+                
+                const imageData = await response.json();
+                
+                // Update the display
+                previewImage.src = '../imagens/'+imageData.path+'.png';
+                originalCaption.textContent = imageData.description;
+                editor.value = imageData.new_description || imageData.description;
+                updateTokenCount();
+                
+                currentId = id;
+                currentIndexSpan.textContent = currentId;
+                updateNavButtons();
+                
+                // Reset zoom
+                currentScale = 1;
+                translateX = 0;
+                translateY = 0;
+                updateImageTransform();
+                
+                // Focus on the editor
+                editor.focus();
+            } catch (error) {
+                showStatus('Failed to load image. Please try again.', false);
+                console.error('Error:', error);
+            }
         }
 
         async function saveAndNext() {
-            const newCaption = editor.value.trim();
-            const currentImage = imagesData[currentImageIndex];
+            const newDescription = editor.value.trim();
 
-            if (!newCaption) {
-                showStatus('Please enter a caption before saving.', false);
+            if (!newDescription) {
+                showStatus('Please enter a description before saving.', false);
                 return;
             }
 
             try {
-                const response = await fetch('/api/save-caption', {
+                const response = await fetch('/api/update-description', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                     },
                     body: JSON.stringify({
-                        imageId: currentImage.imgid,
-                        caption: newCaption
+                        id: currentId,
+                        description: newDescription
                     })
                 });
 
                 if (!response.ok) {
-                    throw new Error('Failed to save caption');
+                    throw new Error('Failed to save description');
                 }
 
-                showStatus('Caption saved successfully!', true);
-                
+                showStatus('Description saved successfully!', true);
+
                 // Move to next image if available
-                if (currentImageIndex < imagesData.length - 1) {
-                    displayImage(currentImageIndex + 1);
+                if (currentId < totalImages) {
+                    await loadImage(currentId + 1);
                 }
             } catch (error) {
-                showStatus('Failed to save caption. Please try again.', false);
+                showStatus('Failed to save description. Please try again.', false);
                 console.error('Error:', error);
             }
         }
 
         function updateNavButtons() {
-            prevButton.disabled = currentImageIndex === 0;
-            nextButton.disabled = currentImageIndex >= imagesData.length - 1;
+            prevButton.disabled = currentId === 1;
+            nextButton.disabled = currentId >= totalImages;
         }
 
         function showStatus(message, isSuccess) {
@@ -372,7 +445,7 @@
             }, 3000);
         }
 
-        // Initialize tokenizer
+        // Initialize tokenizer (keep existing tokenizer functions)
         async function initializeTokenizer() {
             tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
         }
@@ -389,24 +462,15 @@
             saveButton.disabled = tokenCount > MAX_TOKENS;
         }
 
-        // Load images data
-        async function loadImages() {
-            try {
-                const response = await fetch('http://localhost:8000/api/images');
-                const data = await response.json();
-                imagesData = data.images;
-                totalImagesSpan.textContent = imagesData.length;
-                updateNavButtons();
-                if (imagesData.length > 0) {
-                    displayImage(0);
-                }
-            } catch (error) {
-                showStatus('Failed to load images. Please refresh the page.', false);
-                console.error('Error:', error);
-            }
-        }
-
         // Event Listeners
+        gotoButton.addEventListener('click', handleGoto);
+        
+        gotoInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                handleGoto();
+            }
+        });
+
         editor.addEventListener('keydown', async function(e) {
             if (e.ctrlKey && e.key === 'Enter') {
                 e.preventDefault();
@@ -416,21 +480,21 @@
 
         editor.addEventListener("input", updateTokenCount);
 
-        prevButton.addEventListener('click', () => {
-            if (currentImageIndex > 0) {
-                displayImage(currentImageIndex - 1);
+        prevButton.addEventListener('click', async () => {
+            if (currentId > 1) {
+                await loadImage(currentId - 1);
             }
         });
 
-        nextButton.addEventListener('click', () => {
-            if (currentImageIndex < imagesData.length - 1) {
-                displayImage(currentImageIndex + 1);
+        nextButton.addEventListener('click', async () => {
+            if (currentId < totalImages) {
+                await loadImage(currentId + 1);
             }
         });
 
         saveButton.addEventListener('click', saveAndNext);
 
-        // Zoom controls
+        // Keep existing zoom and drag event listeners
         zoomIn.addEventListener('click', () => {
             if (currentScale < MAX_SCALE) {
                 currentScale = Math.min(currentScale + SCALE_STEP, MAX_SCALE);
@@ -452,7 +516,7 @@
             updateImageTransform();
         });
 
-        // Drag functionality
+        // Keep existing drag functionality
         previewImage.addEventListener('mousedown', (e) => {
             e.preventDefault();
             isDragging = true;
@@ -474,7 +538,6 @@
             previewImage.style.cursor = 'grab';
         });
 
-        // Wheel zoom
         previewImage.addEventListener('wheel', (e) => {
             e.preventDefault();
             const delta = e.deltaY > 0 ? -SCALE_STEP : SCALE_STEP;
@@ -488,7 +551,9 @@
 
         // Initialize the app
         initializeTokenizer();
-        loadImages();
+        loadImage(1); // Start with the first image
+        
+        totalImagesSpan.textContent = totalImages;
     </script>
 </body>
 </html>
