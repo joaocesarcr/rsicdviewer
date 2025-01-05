@@ -7,6 +7,11 @@ import sqlite3
 class DatabaseManager:
     def __init__(self, db_path="captions.db"):
         self.db_path = db_path
+        self._init_db()
+
+    def _init_db(self):
+        with self.get_connection() as conn:
+            cursor = conn.cursor()
 
     def get_connection(self):
         return sqlite3.connect(self.db_path)
@@ -27,7 +32,7 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
-                SELECT id, path, description, new_description 
+                SELECT id, path, description, new_description, third_description 
                 FROM images 
                 WHERE id = ?
             ''', (image_id,))
@@ -37,18 +42,20 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
                     'id': row[0],
                     'path': row[1],
                     'description': row[2],
-                    'new_description': row[3]
+                    'new_description': row[3],
+                    'third_description': row[4]
                 }
             return None
 
-    def _update_description(self, image_id, new_description):
+    def _update_description(self, image_id, new_description, third_description):
         with self.db.get_connection() as conn:
             cursor = conn.cursor()
             cursor.execute('''
                 UPDATE images
-                SET new_description = ?
+                SET new_description = ?,
+                    third_description = ?
                 WHERE id = ?
-            ''', (new_description, image_id))
+            ''', (new_description, third_description, image_id))
             conn.commit()
             return self._get_image(image_id)
 
@@ -94,15 +101,16 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
                 
                 image_id = data.get('id')
                 new_description = data.get('description')
+                third_description = data.get('third_description')
                 
-                if not image_id or not new_description:
+                if not image_id or not new_description or not third_description:
                     self._send_json_response(
-                        {"error": "Image ID and description required"}, 
+                        {"error": "Image ID, description, and third description required"}, 
                         400
                     )
                     return
                 
-                updated_image = self._update_description(image_id, new_description)
+                updated_image = self._update_description(image_id, new_description, third_description)
                 
                 if updated_image:
                     self._send_json_response({
@@ -137,5 +145,3 @@ def run(server_class=HTTPServer, handler_class=ImageCaptionHandler, port=8000):
 
 if __name__ == '__main__':
     run()
-
-

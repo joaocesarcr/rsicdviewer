@@ -181,7 +181,7 @@ body {
 }
 
 .caption-section {
-    min-height:40%;
+    min-height:20%;
     display: flex;
     flex-direction: column;
 /* 

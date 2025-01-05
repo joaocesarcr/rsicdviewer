@@ -13,6 +13,7 @@ const totalImagesSpan = document.getElementById('totalImages');
 const previewImage = document.getElementById('previewImage');
 const originalCaption = document.getElementById('originalCaption');
 const editor = document.getElementById('captionEditor');
+const thirdDescriptionEditor = document.getElementById('thirdDescriptionEditor');
 const saveButton = document.getElementById('saveButton');
 const statusMessage = document.getElementById('statusMessage');
 const zoomIn = document.getElementById('zoomIn');
@@ -54,10 +55,12 @@ async function loadImage(id) {
             throw new Error('Failed to load image');
         }
         const imageData = await response.json();
-        previewImage.src = '../imagens/' + imageData.path + '.png';
+        previewImage.src = '../imagens/' + imageData.path;
         originalCaption.textContent = imageData.description;
         editor.value = imageData.new_description || imageData.description;
+        thirdDescriptionEditor.value = imageData.third_description || imageData.description;
         updateTokenCount();
+        updateThirdTokenCount();
 
         currentId = id;
         currentIndexSpan.textContent = currentId;
@@ -76,8 +79,9 @@ async function loadImage(id) {
 
 async function saveAndNext() {
     const newDescription = editor.value.trim();
-    if (!newDescription) {
-        showStatus('Please enter a description before saving.', false);
+    const thirdDescription = thirdDescriptionEditor.value.trim();
+    if (!newDescription || !thirdDescription) {
+        showStatus('Please enter both descriptions before saving.', false);
         return;
     }
     try {
@@ -88,18 +92,19 @@ async function saveAndNext() {
             },
             body: JSON.stringify({
                 id: currentId,
-                description: newDescription
+                description: newDescription,
+                third_description: thirdDescription
             })
         });
         if (!response.ok) {
-            throw new Error('Failed to save description');
+            throw new Error('Failed to save descriptions');
         }
-        showStatus('Description saved successfully!', true);
+        showStatus('Descriptions saved successfully!', true);
         if (currentId < totalImages) {
             await loadImage(currentId + 1);
         }
     } catch (error) {
-        showStatus('Failed to save description. Please try again.', false);
+        showStatus('Failed to save descriptions. Please try again.', false);
         console.error('Error:', error);
     }
 }
@@ -122,8 +127,8 @@ function showStatus(message, isSuccess) {
 async function initializeTokenizer() {
     tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
     updateTokenCount();
+    updateThirdTokenCount();
 }
-
 
 async function countTokens(text) {
     const tokens = await tokenizer.encode(text);
@@ -134,7 +139,20 @@ async function updateTokenCount() {
     const newDescription = editor.value;
     const tokenCount = await countTokens(newDescription);
     document.getElementById("tokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
-    saveButton.disabled = tokenCount > MAX_TOKENS;
+    updateSaveButtonState();
+}
+
+async function updateThirdTokenCount() {
+    const thirdDescription = thirdDescriptionEditor.value;
+    const tokenCount = await countTokens(thirdDescription);
+    document.getElementById("thirdTokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
+    updateSaveButtonState();
+}
+
+async function updateSaveButtonState() {
+    const newDescriptionTokens = await countTokens(editor.value);
+    const thirdDescriptionTokens = await countTokens(thirdDescriptionEditor.value);
+    saveButton.disabled = newDescriptionTokens > MAX_TOKENS || thirdDescriptionTokens > MAX_TOKENS;
 }
 
 // Event Listeners
@@ -153,7 +171,15 @@ editor.addEventListener('keydown', async function(e) {
     }
 });
 
+thirdDescriptionEditor.addEventListener('keydown', async function(e) {
+    if (e.ctrlKey && e.key === 'Enter') {
+        e.preventDefault();
+        await saveAndNext();
+    }
+});
+
 editor.addEventListener("input", updateTokenCount);
+thirdDescriptionEditor.addEventListener("input", updateThirdTokenCount);
 
 prevButton.addEventListener('click', async () => {
     if (currentId > 1) {
