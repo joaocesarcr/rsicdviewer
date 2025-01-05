@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editor de Descrições</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="navigation">
+        <div class="navigation-buttons-container">
+            <button class="nav-button" id="prevButton" disabled>Anterior</button>
+            <span class="image-count">Imagem <span id="currentIndex">1</span> de <span id="totalImages">1</span></span>
+            <button class="nav-button" id="nextButton" disabled>Próxima</button>
+        </div>
+        <div class="goto-container">
+            <input type="number" class="goto-input" id="gotoInput" min="1" placeholder="Ir para 1">
+            <button class="nav-button" id="gotoButton">Ir</button>
+        </div>
+    </div>
+    <div class="main-content">
+        <div class="side-top">
+            <div class="image-wrapper">
+                <div class="image-container">
+                    <img src="" alt="Current image" id="previewImage" draggable="false">
+                </div>
+                <div class="zoom-controls">
+                    <button class="zoom-button" id="zoomOut">-</button>
+                    <button class="zoom-button" id="zoomReset">↺</button>
+                    <button class="zoom-button" id="zoomIn">+</button>
+                </div>
+            </div>
+        </div>
+        <div class="side-bottom">
+            <div class="caption-section">
+                <span class="label">Descrição Original:</span>
+                <div class="original-caption" id="originalCaption"></div>
+            </div>
+            <div class="caption-section">
+                <span class="label">Nova Descrição: <span id="tokenCounter"></span></span>
+                <textarea class="editor" id="captionEditor"></textarea>
+            </div>
+            <button class="save-button" id="saveButton">Salvar</button>
+            <div class="status-message" id="statusMessage"></div>
+        </div>
+    </div>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
+
