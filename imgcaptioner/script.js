@@ -76,7 +76,27 @@ async function loadImage(id) {
         console.error('Error:', error);
     }
 }
-
+function calculateDiff(original, modified) {
+    const words1 = original.split(/\s+/);
+    const words2 = modified.split(/\s+/);
+    let diff = [];
+    
+    // Using simple word-by-word comparison
+    const maxLen = Math.max(words1.length, words2.length);
+    for (let i = 0; i < maxLen; i++) {
+        if (i >= words1.length) {
+            diff.push(`[+${words2[i]}]`);
+        } else if (i >= words2.length) {
+            diff.push(`[-${words1[i]}]`);
+        } else if (words1[i] !== words2[i]) {
+            diff.push(`[-${words1[i]}] [+${words2[i]}]`);
+        } else {
+            diff.push(words1[i]);
+        }
+    }
+    
+    return diff.join(' ');
+}
 async function saveAndNext() {
     const newDescription = editor.value.trim();
     const thirdDescription = thirdDescriptionEditor.value.trim();
