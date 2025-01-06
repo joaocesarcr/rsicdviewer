@@ -22,7 +22,7 @@ const zoomReset = document.getElementById('zoomReset');
 
 // Variables
 let currentId = 1;
-let totalImages = 23810; 
+let totalImages = 0;
 let currentScale = 1;
 const MIN_SCALE = 0.5;
 const MAX_SCALE = 10;
@@ -34,6 +34,17 @@ let translateX = 0;
 let translateY = 0;
 
 // Functions
+async function loadStats() {
+    try {
+        const response = await fetch('/api/stats');
+        const stats = await response.json();
+        totalImages = stats.total_images;
+        totalImagesSpan.textContent = totalImages;
+        updateNavButtons();
+    } catch (error) {
+        console.error('Failed to load stats:', error);
+    }
+}
 async function handleGoto() {
     const targetId = parseInt(gotoInput.value);
     if (isNaN(targetId) || targetId < 1 || targetId > totalImages) {
@@ -267,7 +278,14 @@ previewImage.addEventListener('wheel', (e) => {
     }
 });
 
-// Initialize
-initializeTokenizer();
-loadImage(1);
-totalImagesSpan.textContent = totalImages;
+// Modify initialize section:
+async function initialize() {
+    await initializeTokenizer();
+    await loadStats();
+    console.log(currentId);
+    console.log(totalImages);
+    await loadImage(currentId);
+}
+
+initialize();
+

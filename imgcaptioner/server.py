@@ -12,6 +12,14 @@ class DatabaseManager:
     def _init_db(self):
         with self.get_connection() as conn:
             cursor = conn.cursor()
+            cursor.execute('''
+                CREATE TABLE IF NOT EXISTS app_state (
+                    id INTEGER PRIMARY KEY,
+                    last_edited_image INTEGER
+                )
+            ''')
+            cursor.execute('INSERT OR IGNORE INTO app_state (id, last_edited_image) VALUES (1, 1)')
+            conn.commit()
 
     def get_connection(self):
         return sqlite3.connect(self.db_path)
@@ -27,6 +35,28 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
         self.send_header('Access-Control-Allow-Origin', '*')
         self.end_headers()
         self.wfile.write(json.dumps(data).encode())
+
+    def _get_total_images(self):
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT COUNT(*) FROM images')
+            return cursor.fetchone()[0]
+
+    def _get_last_edited_image(self):
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('SELECT last_edited_image FROM app_state WHERE id = 1')
+            result = cursor.fetchone()
+            if not result:
+              print("nao conseguiu dar fetch")
+            print(result)
+            return result[0] if result else 1
+
+    def _update_last_edited_image(self, image_id):
+        with self.db.get_connection() as conn:
+            cursor = conn.cursor()
+            cursor.execute('UPDATE app_state SET last_edited_image = ? WHERE id = 1', (image_id,))
+            conn.commit()
 
     def _get_image(self, image_id):
         with self.db.get_connection() as conn:
@@ -57,25 +87,28 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
                 WHERE id = ?
             ''', (new_description, third_description, image_id))
             conn.commit()
+            self._update_last_edited_image(image_id)
             return self._get_image(image_id)
 
     def do_GET(self):
         parsed_path = urlparse(self.path)
-        if parsed_path.path == '/api/image':
+        if parsed_path.path == '/api/stats':
+            total = self._get_total_images()
+            self._send_json_response({"total_images": total})
+            return
+        elif parsed_path.path == '/api/image':
             query_params = parse_qs(parsed_path.query)
             image_id = query_params.get('id', [None])[0]
             
-            if image_id:
-                image = self._get_image(image_id)
-                if image:
-                    self._send_json_response(image)
-                else:
-                    self._send_json_response({"error": "Image not found"}, 404)
-                return
+            if not image_id:
+                image_id = self._get_last_edited_image()
+            
+            image = self._get_image(image_id)
+            if image:
+                self._send_json_response(image)
             else:
-                self._send_json_response({"error": "Image ID required"}, 400)
-                return
-        
+                self._send_json_response({"error": "Image not found"}, 404)
+            return
         elif parsed_path.path.startswith('/api/placeholder/'):
             try:
                 _, _, width, height = parsed_path.path.split('/')
@@ -86,7 +119,6 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
             except Exception:
                 self.send_error(400, "Invalid placeholder request")
                 return
-        
         else:
             if self.path == '/':
                 self.path = '/index.html'
