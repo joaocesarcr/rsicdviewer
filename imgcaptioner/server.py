@@ -1,4 +1,5 @@
 import os
+import traceback
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 import json
 from urllib.parse import parse_qs, urlparse
@@ -47,9 +48,6 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
             cursor = conn.cursor()
             cursor.execute('SELECT last_edited_image FROM app_state WHERE id = 1')
             result = cursor.fetchone()
-            if not result:
-              print("nao conseguiu dar fetch")
-            print(result)
             return result[0] if result else 1
 
     def _update_last_edited_image(self, image_id):
@@ -92,9 +90,11 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
 
     def do_GET(self):
         parsed_path = urlparse(self.path)
+        print(parsed_path)
         if parsed_path.path == '/api/stats':
             total = self._get_total_images()
-            self._send_json_response({"total_images": total})
+            last_edit = self._get_last_edited_image()
+            self._send_json_response({"total_images": total, "last_edited": last_edit })
             return
         elif parsed_path.path == '/api/image':
             query_params = parse_qs(parsed_path.query)
@@ -135,7 +135,7 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
                 new_description = data.get('description')
                 third_description = data.get('third_description')
                 
-                if not image_id or not new_description or not third_description:
+                if not image_id or not new_description:
                     self._send_json_response(
                         {"error": "Image ID, description, and third description required"}, 
                         400
@@ -156,10 +156,13 @@ class ImageCaptionHandler(SimpleHTTPRequestHandler):
                     )
                 
             except Exception as e:
-                self._send_json_response(
-                    {"status": "error", "message": str(e)},
-                    500
-                )
+                detailed_error = {
+                    "status": "error",
+                    "message": str(e),
+                    "type": type(e).__name__,
+                    "traceback": traceback.format_exc()
+                }
+                self._send_json_response(detailed_error, 500)
             return
 
     def do_OPTIONS(self):

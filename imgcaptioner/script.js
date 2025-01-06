@@ -40,6 +40,8 @@ async function loadStats() {
         const stats = await response.json();
         totalImages = stats.total_images;
         totalImagesSpan.textContent = totalImages;
+        currentId = stats.last_edited + 1;
+        
         updateNavButtons();
     } catch (error) {
         console.error('Failed to load stats:', error);
@@ -282,8 +284,6 @@ previewImage.addEventListener('wheel', (e) => {
 async function initialize() {
     await initializeTokenizer();
     await loadStats();
-    console.log(currentId);
-    console.log(totalImages);
     await loadImage(currentId);
 }
 
