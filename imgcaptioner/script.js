@@ -71,7 +71,7 @@ async function loadImage(id) {
         previewImage.src = '../imagens/' + imageData.path;
         originalCaption.textContent = imageData.description;
         editor.value = imageData.new_description || imageData.description;
-        thirdDescriptionEditor.value = imageData.third_description || imageData.description;
+        thirdDescriptionEditor.value = imageData.third_description;
         updateTokenCount();
         updateThirdTokenCount();
 
@@ -168,20 +168,29 @@ async function countTokens(text) {
     return tokens.length;
 }
 
-async function updateTokenCount() {
-    const newDescription = editor.value;
-    const tokenCount = await countTokens(newDescription);
-    document.getElementById("tokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
+async function updateTokenCount(editorValue, tokenCounterId, maxTokens) {
+    const tokenCount = await countTokens(editorValue);
+    const tokenCounterElement = document.getElementById(tokenCounterId);
+    tokenCounterElement.textContent = `(${tokenCount}/${maxTokens})`;
+
+    if (tokenCount > maxTokens) {
+        tokenCounterElement.style.color = "red";
+    } else {
+        tokenCounterElement.style.color = ""; // Reset to default color if within limit
+    }
+
     updateSaveButtonState();
+}
+
+async function updateMainTokenCount() {
+    const newDescription = editor.value;
+    await updateTokenCount(newDescription, "tokenCounter", MAX_TOKENS);
 }
 
 async function updateThirdTokenCount() {
     const thirdDescription = thirdDescriptionEditor.value;
-    const tokenCount = await countTokens(thirdDescription);
-    document.getElementById("thirdTokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
-    updateSaveButtonState();
+    await updateTokenCount(thirdDescription, "thirdTokenCounter", MAX_TOKENS);
 }
-
 async function updateSaveButtonState() {
     const newDescriptionTokens = await countTokens(editor.value);
     const thirdDescriptionTokens = await countTokens(thirdDescriptionEditor.value);
@@ -280,7 +289,6 @@ previewImage.addEventListener('wheel', (e) => {
     }
 });
 
-// Modify initialize section:
 async function initialize() {
     await initializeTokenizer();
     await loadStats();
