@@ -147,19 +147,29 @@ function updateNavButtons() {
     nextButton.disabled = currentId >= totalImages;
 }
 
+
 function showStatus(message, isSuccess) {
+    statusMessage.style.display = 'none';
+
     statusMessage.textContent = message;
-    statusMessage.style.display = 'block';
     statusMessage.className = 'status-message ' + 
         (isSuccess ? 'status-success' : 'status-error');
+
+    // Show the message
     setTimeout(() => {
-        statusMessage.style.display = 'none';
-    }, 3000);
+        statusMessage.style.display = 'block';
+
+        // Hide the message after 3 seconds
+        setTimeout(() => {
+            statusMessage.style.display = 'none';
+        }, 3000);
+    }, 0); // Immediate display after style updates
 }
 
 async function initializeTokenizer() {
     tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
     updateTokenCount();
+    updateMainTokenCount();
     updateThirdTokenCount();
 }
 
