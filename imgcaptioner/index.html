@@ -32,9 +32,13 @@
             </div>
         </div>
         <div class="side-right">
-            <div class="caption-section">
-                <span class="label">Descrição Original:</span>
-                <div class="original-caption" id="originalCaption"></div>
+
+            <div class="caption-section" id="originalCaptionDiv">
+                <div class="caption-header" >
+                    <span class="label">Descrição Original:</span>
+                    <button class="toggle-button" id="toggleOriginalCaption">+</button>
+                </div>
+                <textarea class="editor original-caption" id="originalCaption"></textarea>
             </div>
             <div class="caption-section">
                 <span class="label">Nova Descrição: <span id="tokenCounter"></span></span>

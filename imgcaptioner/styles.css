@@ -110,7 +110,9 @@ body {
     flex: 1;
     display: flex;
     flex-direction: column;
+    /*
     justify-content:space-between;
+     */
     gap: 10px;
     padding: 10px;
     overflow: hidden;
@@ -149,6 +151,43 @@ body {
     cursor: grabbing;
 }
 
+.foldable {
+    max-height: 0px;
+    height: 0px,
+    overflow: hidden;
+    transition: max-height 0.3s ease-out;
+}
+
+.foldable.expanded {
+    max-height: 200px; /* Adjust based on content */
+}
+
+.expanded {
+  display: none;
+  max-height: 7%;
+  background-color: red;
+  overflow: hidden;
+}
+
+.caption-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.toggle-button {
+    background: none;
+    border: none;
+    font-size: 16px;
+    color: #4a90e2;
+    cursor: pointer;
+    padding: 0;
+    margin-left: 10px;
+}
+
+.toggle-button:hover {
+    color: #357abd;
+}
 .zoom-controls {
     position: absolute;
     bottom: 10px;
@@ -182,12 +221,16 @@ body {
 }
 
 .caption-section {
-    min-height:27%;
     display: flex;
     flex-direction: column;
-/* 
+
     gap: 10px;
-    flex-shrink: 0; */
+    flex-shrink: 0;
+}
+
+.hide {
+    height: 10px;
+    min-height:0%;
 }
 
 .label {
@@ -196,7 +239,7 @@ body {
 }
 
 .original-caption {
-    min-height:100%;
+    min-height: 25%;
     padding: 10px;
     border-radius: 8px;
     background: #ffffff;
@@ -207,7 +250,8 @@ body {
 
 .editor {
     flex: 1;
-    min-height: 40%;
+    min-height: 60%;
+    overflow: scroll;
     font-family: inherit;
     padding: 10px;
     border: 1px solid #ddd;

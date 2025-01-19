@@ -69,7 +69,7 @@ async function loadImage(id) {
         }
         const imageData = await response.json();
         previewImage.src = '../imagens/' + imageData.path;
-        originalCaption.textContent = imageData.description;
+        originalCaption.value = imageData.description;
         editor.value = imageData.new_description || imageData.description;
         thirdDescriptionEditor.value = imageData.third_description;
         updateTokenCount();
@@ -276,6 +276,19 @@ previewImage.addEventListener('mousedown', (e) => {
     previewImage.style.cursor = 'grabbing';
 });
 
+document.addEventListener("DOMContentLoaded", () => {
+    const originalCaption = document.getElementById("originalCaption");
+    const originalCaptionDiv = document.getElementById("originalCaptionDiv");
+    const toggleButton = document.getElementById("toggleOriginalCaption");
+
+
+    toggleButton.addEventListener("click", () => {
+        const isExpanded = originalCaption.classList.toggle("expanded");
+        originalCaptionDiv.classList.toggle("hide");
+
+        toggleButton.textContent = isExpanded ? "+" : "-";
+    });
+});
 document.addEventListener('mousemove', (e) => {
     if (isDragging) {
         translateX = e.clientX - startX;
