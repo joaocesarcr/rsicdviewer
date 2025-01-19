@@ -281,14 +281,19 @@ document.addEventListener("DOMContentLoaded", () => {
     const originalCaptionDiv = document.getElementById("originalCaptionDiv");
     const toggleButton = document.getElementById("toggleOriginalCaption");
 
-
+    let divs = document.getElementsByClassName('increase');
     toggleButton.addEventListener("click", () => {
         const isExpanded = originalCaption.classList.toggle("expanded");
         originalCaptionDiv.classList.toggle("hide");
+        for (let div of divs) {
+          div.classList.toggle("bigger");
+        }
+
 
         toggleButton.textContent = isExpanded ? "+" : "-";
     });
 });
+
 document.addEventListener('mousemove', (e) => {
     if (isDragging) {
         translateX = e.clientX - startX;

@@ -223,9 +223,14 @@ body {
 .caption-section {
     display: flex;
     flex-direction: column;
+    min-height: 30%;
 
     gap: 10px;
     flex-shrink: 0;
+}
+
+.bigger {
+  min-height: 45%;
 }
 
 .hide {
@@ -268,6 +273,7 @@ body {
 
 .button-div {
   
+  margin-top: auto;
 
 }
 
