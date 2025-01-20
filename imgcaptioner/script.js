@@ -168,9 +168,6 @@ function showStatus(message, isSuccess) {
 
 async function initializeTokenizer() {
     tokenizer = await AutoTokenizer.from_pretrained('openai/clip-vit-base-patch32');
-    updateTokenCount();
-    updateMainTokenCount();
-    updateThirdTokenCount();
 }
 
 async function countTokens(text) {
@@ -178,29 +175,25 @@ async function countTokens(text) {
     return tokens.length;
 }
 
-async function updateTokenCount(editorValue, tokenCounterId, maxTokens) {
-    const tokenCount = await countTokens(editorValue);
-    const tokenCounterElement = document.getElementById(tokenCounterId);
-    tokenCounterElement.textContent = `(${tokenCount}/${maxTokens})`;
-
-    if (tokenCount > maxTokens) {
-        tokenCounterElement.style.color = "red";
-    } else {
-        tokenCounterElement.style.color = ""; // Reset to default color if within limit
-    }
-
-    updateSaveButtonState();
+async function updateTokenCount() {
+    updateMainTokenCount();
+    updateThirdTokenCount();
 }
 
 async function updateMainTokenCount() {
     const newDescription = editor.value;
-    await updateTokenCount(newDescription, "tokenCounter", MAX_TOKENS);
+    const tokenCount = await countTokens(newDescription);
+    document.getElementById("tokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
+    saveButton.disabled = tokenCount > MAX_TOKENS;
 }
 
 async function updateThirdTokenCount() {
-    const thirdDescription = thirdDescriptionEditor.value;
-    await updateTokenCount(thirdDescription, "thirdTokenCounter", MAX_TOKENS);
+    const newDescription = thirdDescriptionEditor.value;
+    const tokenCount = await countTokens(newDescription);
+    document.getElementById("thirdTokenCounter").textContent = `(${tokenCount}/${MAX_TOKENS})`;
+    saveButton.disabled = tokenCount > MAX_TOKENS;
 }
+
 async function updateSaveButtonState() {
     const newDescriptionTokens = await countTokens(editor.value);
     const thirdDescriptionTokens = await countTokens(thirdDescriptionEditor.value);
